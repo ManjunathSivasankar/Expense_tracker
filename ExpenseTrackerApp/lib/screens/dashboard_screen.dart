@@ -56,7 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Unified Toggle Control
+            // 1. Unified Toggle Control (At the top as requested)
             Center(
               child: SegmentedButton<AppMode>(
                 segments: const [
@@ -79,7 +79,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // 2. Top Dashboard: Today & Monthly Expenditure
+            _buildTopDashboard(context, expenseProvider, incomeProvider, currencyFormat),
+            const SizedBox(height: 32),
 
             // Content based on Mode
             if (_currentMode == AppMode.income)
@@ -97,6 +101,102 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       floatingActionButton: _buildFAB(context, expenseProvider, incomeProvider),
+    );
+  }
+
+  Widget _buildTopDashboard(BuildContext context, ExpenseProvider expenseProvider, IncomeProvider incomeProvider, NumberFormat currencyFormat) {
+    // Determine if we show Expenditure or Income metrics based on mode
+    // However, the user specifically asked for "Expenditure" in the top dashboard
+    final bool isIncomeMode = _currentMode == AppMode.income;
+    
+    final String todayLabel = isIncomeMode ? 'Today Income' : 'Today Expenditure';
+    final String monthlyLabel = isIncomeMode ? 'Monthly Income' : 'Monthly Expenditure';
+    
+    final String todayValue = isIncomeMode 
+        ? currencyFormat.format(incomeProvider.todayIncome)
+        : currencyFormat.format(expenseProvider.todaySpending);
+        
+    final String monthlyValue = isIncomeMode
+        ? currencyFormat.format(incomeProvider.monthlyIncome)
+        : currencyFormat.format(expenseProvider.monthlySpending);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary.withAlpha((0.15 * 255).toInt()),
+            Theme.of(context).colorScheme.tertiary.withAlpha((0.05 * 255).toInt()),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha((0.1 * 255).toInt())),
+      ),
+      child: Row(
+        children: [
+          _buildTopMetricCard(
+            context,
+            todayLabel,
+            todayValue,
+            isIncomeMode ? Icons.trending_up : Icons.today_outlined,
+            isIncomeMode ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 16),
+          _buildTopMetricCard(
+            context,
+            monthlyLabel,
+            monthlyValue,
+            Icons.calendar_month_outlined,
+            isIncomeMode ? Colors.blue : Theme.of(context).colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopMetricCard(BuildContext context, String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withAlpha((0.1 * 255).toInt()),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

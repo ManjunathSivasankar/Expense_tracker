@@ -82,7 +82,7 @@ class BorrowLendScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          onTap: () => _showAddEditDialog(context, provider, record),
+                          onTap: () => _showEntryFormDialog(context, provider, record, record.type),
                         ),
                       );
                     },
@@ -91,7 +91,7 @@ class BorrowLendScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(context, provider, null),
+        onPressed: () => _showTypeSelectionDialog(context, provider),
         child: const Icon(Icons.add),
       ),
     );
@@ -108,75 +108,231 @@ class BorrowLendScreen extends StatelessWidget {
     );
   }
 
-  void _showAddEditDialog(BuildContext context, BorrowLendProvider provider, BorrowLend? record) {
-    final nameController = TextEditingController(text: record?.personName);
-    final amountController = TextEditingController(text: record?.amount.toString());
-    final notesController = TextEditingController(text: record?.notes);
-    BorrowLendType selectedType = record?.type ?? BorrowLendType.borrowed;
-
+  void _showTypeSelectionDialog(BuildContext context, BorrowLendProvider provider) {
     showDialog(
       context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Transaction Type', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTypeOption(
+              context,
+              'Borrow',
+              'I borrowed money',
+              Icons.call_received_rounded,
+              Colors.redAccent,
+              () {
+                Navigator.pop(context);
+                _showEntryFormDialog(context, provider, null, BorrowLendType.borrowed);
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTypeOption(
+              context,
+              'Lend',
+              'I gave money',
+              Icons.call_made_rounded,
+              Colors.green,
+              () {
+                Navigator.pop(context);
+                _showEntryFormDialog(context, provider, null, BorrowLendType.given);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeOption(BuildContext context, String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(16),
+          color: color.withOpacity(0.05),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded, color: color.withOpacity(0.5), size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEntryFormDialog(BuildContext context, BorrowLendProvider provider, BorrowLend? record, BorrowLendType type) {
+    final nameController = TextEditingController(text: record?.personName);
+    final amountController = TextEditingController(text: record?.amount.toString() == 'null' ? '' : record?.amount.toString());
+    final notesController = TextEditingController(text: record?.notes);
+    DateTime selectedDate = record?.date ?? DateTime.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(record == null ? 'Add Record' : 'Edit Record'),
-          content: SingleChildScrollView(
+        builder: (context, setModalState) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DropdownButtonFormField<BorrowLendType>(
-                  value: selectedType,
-                  items: const [
-                    DropdownMenuItem(value: BorrowLendType.borrowed, child: Text('Borrowed From')),
-                    DropdownMenuItem(value: BorrowLendType.given, child: Text('Given To')),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      record == null ? 'New ${type == BorrowLendType.borrowed ? "Borrow" : "Lend"}' : 'Edit Transaction',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    Chip(
+                      label: Text(
+                        type == BorrowLendType.borrowed ? "BORROW" : "LEND",
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: type == BorrowLendType.borrowed ? Colors.redAccent : Colors.green,
+                      padding: EdgeInsets.zero,
+                    ),
                   ],
-                  onChanged: (val) => setDialogState(() => selectedType = val!),
-                  decoration: const InputDecoration(labelText: 'Type'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Person Name'),
+                  decoration: InputDecoration(
+                    labelText: 'Person Name*',
+                    hintText: 'Who is it?',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    labelText: 'Amount*',
+                    prefixText: '₹ ',
+                    prefixIcon: const Icon(Icons.currency_rupee),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: notesController,
-                  decoration: const InputDecoration(labelText: 'Notes (Optional)'),
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Notes / Description*',
+                    hintText: 'What was this for?',
+                    prefixIcon: const Icon(Icons.description_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setModalState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Text('Date: ${DateFormat('dd MMM yyyy').format(selectedDate)}'),
+                        const Spacer(),
+                        const Icon(Icons.edit, size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (nameController.text.isNotEmpty && 
+                          amountController.text.isNotEmpty && 
+                          notesController.text.isNotEmpty) {
+                        final newRecord = BorrowLend(
+                          id: record?.id,
+                          personName: nameController.text,
+                          amount: double.parse(amountController.text),
+                          type: type,
+                          date: selectedDate,
+                          notes: notesController.text,
+                          isCleared: record?.isCleared ?? false,
+                        );
+
+                        if (record == null) {
+                          provider.addRecord(newRecord);
+                        } else {
+                          provider.updateRecord(newRecord);
+                        }
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please fill all mandatory fields (*)')),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: type == BorrowLendType.borrowed ? Colors.redAccent : Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Save Transaction', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty && amountController.text.isNotEmpty) {
-                  final newRecord = BorrowLend(
-                    id: record?.id,
-                    personName: nameController.text,
-                    amount: double.parse(amountController.text),
-                    type: selectedType,
-                    date: record?.date ?? DateTime.now(),
-                    notes: notesController.text,
-                    isCleared: record?.isCleared ?? false,
-                  );
-
-                  if (record == null) {
-                    provider.addRecord(newRecord);
-                  } else {
-                    provider.updateRecord(newRecord);
-                  }
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
         ),
       ),
     );
