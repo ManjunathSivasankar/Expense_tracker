@@ -11,6 +11,7 @@ import 'history_screen.dart';
 import 'borrow_lend_screen.dart';
 import 'category_screen.dart';
 import 'revenue_screen.dart';
+import 'backup_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -48,6 +49,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.people_outline),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BorrowLendScreen())),
+            tooltip: 'Borrow & Lend',
+          ),
+          IconButton(
+            icon: const Icon(Icons.backup_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen())),
+            tooltip: 'Backup & Restore',
           ),
         ],
       ),
@@ -340,40 +347,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCategoryLimits(BuildContext context, ExpenseProvider provider) {
-    final categories = _currentMode == AppMode.personal 
-        ? provider.categories.where((c) => c.monthlyLimit != null).toList()
-        : provider.categories;
+    final spending = provider.categorySpending;
+    final categories = provider.categories.where((c) => (spending[c.name] ?? 0) > 0).toList();
 
     if (categories.isEmpty) {
-      return const Text('No active tracking for this mode.', style: TextStyle(color: Colors.grey, fontSize: 12));
+      return const Text('No transactions recorded for this month.', style: TextStyle(color: Colors.grey, fontSize: 12));
     }
 
     return Column(
       children: categories.map((category) {
-        final spent = provider.categorySpending[category.name] ?? 0;
+        final spent = spending[category.name] ?? 0;
+        final hasLimit = category.monthlyLimit != null && category.monthlyLimit! > 0;
         final limit = category.monthlyLimit ?? 0;
-        final percent = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+        final percent = hasLimit ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+        final isExceeded = hasLimit && spent > limit;
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(category.name),
-                  Text('₹${spent.toStringAsFixed(0)}${limit > 0 ? " / ₹${limit.toStringAsFixed(0)}" : ""}'),
-                ],
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer.withAlpha(50),
+                child: const Icon(Icons.category_outlined, size: 18),
               ),
-              if (limit > 0) ...[
-                const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: percent,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                  color: percent > 0.9 ? Colors.red : Theme.of(context).colorScheme.primary,
-                  minHeight: 8,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        if (hasLimit)
+                          Text('₹${spent.toStringAsFixed(0)} / ₹${limit.toStringAsFixed(0)}')
+                        else
+                          Text('₹${spent.toStringAsFixed(0)}'),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (hasLimit) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: percent,
+                                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                                color: isExceeded ? Colors.redAccent : Theme.of(context).colorScheme.primary,
+                                minHeight: 6,
+                              ),
+                            ),
+                          ),
+                          if (isExceeded) ...[
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Limit Exceeded',
+                              style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else ...[
+                      const Text(
+                        'Unlimited',
+                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         );

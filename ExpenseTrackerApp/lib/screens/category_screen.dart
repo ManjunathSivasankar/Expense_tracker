@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
 import '../models/category.dart';
+import '../widgets/delete_confirmation_dialog.dart';
 
 class CategoryScreen extends StatelessWidget {
   const CategoryScreen({super.key});
@@ -103,23 +104,14 @@ class CategoryScreen extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, ExpenseProvider provider, Category category) {
-    showDialog(
+  void _confirmDelete(BuildContext context, ExpenseProvider provider, Category category) async {
+    final confirm = await showDeleteConfirmationDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Category?'),
-        content: Text('Are you sure you want to delete "${category.name}"? All associated transactions will still exist but will be unlinked.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              provider.deleteCategory(category.id!);
-              Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: 'Delete Category?',
+      content: 'Are you sure you want to delete "${category.name}"? All associated transactions will still exist but will be unlinked.',
     );
+    if (confirm) {
+      await provider.deleteCategory(category.id!);
+    }
   }
 }

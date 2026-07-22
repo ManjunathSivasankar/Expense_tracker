@@ -11,6 +11,7 @@ class ExpenseProvider with ChangeNotifier {
   TransactionType get currentType => _currentType;
   List<Category> get categories => _categories.where((c) => c.type == _currentType).toList();
   List<Transaction> get transactions => _transactions.where((t) => t.type == _currentType).toList();
+  List<Transaction> get allTransactions => _transactions;
 
   void toggleType() {
     _currentType = _currentType == TransactionType.personal 

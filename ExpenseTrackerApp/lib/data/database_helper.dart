@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -14,8 +16,13 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    String path;
+    if (kIsWeb) {
+      path = filePath;
+    } else {
+      final dbPath = await getDatabasesPath();
+      path = join(dbPath, filePath);
+    }
 
     return await openDatabase(
       path,
@@ -142,8 +149,37 @@ class DatabaseHelper {
     }
   }
 
+  Future<String> getDatabaseFilePath() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Database backup is not supported on Web');
+    }
+    final dbPath = await getDatabasesPath();
+    return join(dbPath, 'expense_tracker.db');
+  }
+
+  Future<void> restoreDatabase(String sourcePath) async {
+    if (kIsWeb) {
+      throw UnsupportedError('Database restore is not supported on Web');
+    }
+    
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'expense_tracker.db');
+
+    final File sourceFile = File(sourcePath);
+    if (await sourceFile.exists()) {
+      await sourceFile.copy(path);
+    }
+
+    _database = await _initDB('expense_tracker.db');
+  }
+
   Future close() async {
     final db = await instance.database;
-    db.close();
+    await db.close();
   }
 }
