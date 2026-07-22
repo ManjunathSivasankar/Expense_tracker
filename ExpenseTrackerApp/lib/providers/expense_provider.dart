@@ -7,11 +7,20 @@ class ExpenseProvider with ChangeNotifier {
   TransactionType _currentType = TransactionType.personal;
   List<Category> _categories = [];
   List<Transaction> _transactions = [];
+  DateTime _selectedMonth = DateTime.now();
+
+  DateTime get selectedMonth => _selectedMonth;
+
+  void setSelectedMonth(DateTime date) {
+    _selectedMonth = date;
+    notifyListeners();
+  }
 
   TransactionType get currentType => _currentType;
   List<Category> get categories => _categories.where((c) => c.type == _currentType).toList();
   List<Transaction> get transactions => _transactions.where((t) => t.type == _currentType).toList();
   List<Transaction> get allTransactions => _transactions;
+  List<Category> get allCategories => _categories;
 
   void toggleType() {
     _currentType = _currentType == TransactionType.personal 
@@ -34,8 +43,7 @@ class ExpenseProvider with ChangeNotifier {
       .fold(0, (sum, t) => sum + t.amount);
 
   bool _isThisMonth(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year && date.month == now.month;
+    return date.year == _selectedMonth.year && date.month == _selectedMonth.month;
   }
 
   Future<void> fetchCategories() async {
@@ -89,25 +97,27 @@ class ExpenseProvider with ChangeNotifier {
 
   double get todaySpending {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return transactions
-        .where((t) => t.date.isAfter(today.subtract(const Duration(seconds: 1))))
-        .fold(0, (sum, t) => sum + t.amount);
+    if (_selectedMonth.year == now.year && _selectedMonth.month == now.month) {
+      return transactions
+          .where((t) => t.date.year == now.year && t.date.month == now.month && t.date.day == now.day)
+          .fold(0, (sum, t) => sum + t.amount);
+    }
+    return 0.0;
   }
 
   double get monthlySpending {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1).subtract(const Duration(microseconds: 1));
     return transactions
-        .where((t) => t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))))
+        .where((t) => t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && t.date.isBefore(endOfMonth))
         .fold(0, (sum, t) => sum + t.amount);
   }
 
   Map<String, double> get categorySpending {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1).subtract(const Duration(microseconds: 1));
     final monthTransactions = transactions
-        .where((t) => t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))));
+        .where((t) => t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && t.date.isBefore(endOfMonth));
     
     Map<String, double> spending = {};
     for (var t in monthTransactions) {

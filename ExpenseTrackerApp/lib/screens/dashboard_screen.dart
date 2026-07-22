@@ -35,16 +35,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
+            tooltip: 'Transaction History',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HistoryScreen(
+                  initialMonth: expenseProvider.selectedMonth.month,
+                  initialYear: expenseProvider.selectedMonth.year,
+                ),
+              ),
+            ),
           ),
           IconButton(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+            icon: const Icon(Icons.account_balance_wallet),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RevenueScreen())),
-            tooltip: 'Revenue & Sales',
+            tooltip: 'Manage Income Sources',
           ),
           IconButton(
-            icon: const Icon(Icons.category_outlined),
+            icon: const Icon(Icons.label_outline),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryScreen())),
+            tooltip: 'Manage Categories',
           ),
           IconButton(
             icon: const Icon(Icons.people_outline),
@@ -63,6 +73,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Month & Year Selector
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    final newDate = DateTime(
+                      expenseProvider.selectedMonth.year,
+                      expenseProvider.selectedMonth.month - 1,
+                    );
+                    expenseProvider.setSelectedMonth(newDate);
+                    incomeProvider.setSelectedMonth(newDate);
+                  },
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    DateFormat('MMMM yyyy').format(expenseProvider.selectedMonth),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: expenseProvider.selectedMonth,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      final newDate = DateTime(picked.year, picked.month);
+                      expenseProvider.setSelectedMonth(newDate);
+                      incomeProvider.setSelectedMonth(newDate);
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    final newDate = DateTime(
+                      expenseProvider.selectedMonth.year,
+                      expenseProvider.selectedMonth.month + 1,
+                    );
+                    expenseProvider.setSelectedMonth(newDate);
+                    incomeProvider.setSelectedMonth(newDate);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
             // 1. Unified Toggle Control (At the top as requested)
             Center(
               child: SegmentedButton<AppMode>(
@@ -731,75 +791,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showAddExpenseDialog(BuildContext context, ExpenseProvider provider) {
     final amountController = TextEditingController();
     final descController = TextEditingController();
-    Category? selectedCategory = provider.categories.isNotEmpty ? provider.categories.first : null;
+    TransactionType selectedType = provider.currentType == TransactionType.personal || provider.currentType == TransactionType.business
+        ? provider.currentType
+        : TransactionType.personal;
+    
+    Category? selectedCategory;
+    final initialFiltered = provider.allCategories.where((c) => c.type == selectedType).toList();
+    if (initialFiltered.isNotEmpty) {
+      selectedCategory = initialFiltered.first;
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Add New Expense', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                labelText: 'Amount',
-                prefixText: '₹ ',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final categoriesToShow = provider.allCategories.where((c) => c.type == selectedType).toList();
+          
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Add New Expense', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  
+                  // Expense Type Segmented Toggle to prevent wrong entries
+                  Center(
+                    child: SegmentedButton<TransactionType>(
+                      segments: const [
+                        ButtonSegment(value: TransactionType.personal, label: Text('Personal'), icon: Icon(Icons.person)),
+                        ButtonSegment(value: TransactionType.business, label: Text('Business'), icon: Icon(Icons.business_center)),
+                      ],
+                      selected: {selectedType},
+                      onSelectionChanged: (val) {
+                        setModalState(() {
+                          selectedType = val.first;
+                          final filtered = provider.allCategories.where((c) => c.type == selectedType).toList();
+                          selectedCategory = filtered.isNotEmpty ? filtered.first : null;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: '₹ ',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<Category>(
+                    value: selectedCategory,
+                    items: categoriesToShow.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                    onChanged: (val) => setModalState(() => selectedCategory = val),
+                    decoration: InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextField(
+                    controller: descController,
+                    decoration: InputDecoration(
+                      labelText: 'Description (Optional)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (amountController.text.isNotEmpty && selectedCategory != null) {
+                          provider.addTransaction(model.Transaction(
+                            amount: double.parse(amountController.text),
+                            categoryId: selectedCategory!.id!,
+                            description: descController.text,
+                            date: DateTime.now(),
+                            type: selectedType,
+                          ));
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter an amount and select a category')),
+                          );
+                        }
+                      },
+                      child: const Text('Save Expense', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<Category>(
-              value: selectedCategory,
-              items: provider.categories.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-              onChanged: (val) => selectedCategory = val,
-              decoration: InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descController,
-              decoration: InputDecoration(
-                labelText: 'Description (Optional)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (amountController.text.isNotEmpty && selectedCategory != null) {
-                    provider.addTransaction(model.Transaction(
-                      amount: double.parse(amountController.text),
-                      categoryId: selectedCategory!.id!,
-                      description: descController.text,
-                      date: DateTime.now(),
-                      type: provider.currentType,
-                    ));
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Save Expense', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

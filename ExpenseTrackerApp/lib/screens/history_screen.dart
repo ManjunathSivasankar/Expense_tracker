@@ -34,7 +34,10 @@ class UnifiedTransaction {
 }
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final int? initialMonth;
+  final int? initialYear;
+
+  const HistoryScreen({super.key, this.initialMonth, this.initialYear});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -54,6 +57,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _selectedMonth = widget.initialMonth;
+    _selectedYear = widget.initialYear;
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -70,7 +80,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     // Expenses
     for (var t in expenseProvider.allTransactions) {
-      final category = expenseProvider.categories.firstWhere(
+      final category = expenseProvider.allCategories.firstWhere(
         (c) => c.id == t.categoryId,
         orElse: () => Category(name: 'Unknown', type: t.type),
       );
@@ -155,7 +165,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     // Collect all categories and sources for the category filter dropdown
     final allCategoryNames = {
-      ...expenseProvider.categories.map((c) => c.name),
+      ...expenseProvider.allCategories.map((c) => c.name),
       ...incomeProvider.allSources.map((s) => s.name)
     }.toList();
 

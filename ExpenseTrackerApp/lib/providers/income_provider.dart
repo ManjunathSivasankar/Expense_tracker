@@ -7,6 +7,14 @@ class IncomeProvider with ChangeNotifier {
   List<IncomeSource> _sources = [];
   List<IncomeEntry> _entries = [];
   TransactionType _currentType = TransactionType.personal;
+  DateTime _selectedMonth = DateTime.now();
+
+  DateTime get selectedMonth => _selectedMonth;
+
+  void setSelectedMonth(DateTime date) {
+    _selectedMonth = date;
+    notifyListeners();
+  }
 
   List<IncomeSource> get allSources => _sources;
   List<IncomeEntry> get allEntries => _entries;
@@ -97,19 +105,24 @@ class IncomeProvider with ChangeNotifier {
   // General Helpers
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    if (_selectedMonth.year == now.year && _selectedMonth.month == now.month) {
+      return date.year == now.year && date.month == now.month && date.day == now.day;
+    }
+    return false;
   }
 
   bool _isThisWeek(DateTime date) {
     final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final weekStart = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-    return date.isAfter(weekStart.subtract(const Duration(seconds: 1)));
+    if (_selectedMonth.year == now.year && _selectedMonth.month == now.month) {
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final weekStart = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+      return date.isAfter(weekStart.subtract(const Duration(seconds: 1)));
+    }
+    return false;
   }
 
   bool _isThisMonth(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year && date.month == now.month;
+    return date.year == _selectedMonth.year && date.month == _selectedMonth.month;
   }
 
   double get todayIncome => _currentType == TransactionType.personal ? personalTodayIncome : businessTodayIncome;
@@ -117,10 +130,10 @@ class IncomeProvider with ChangeNotifier {
   double get monthlyIncome => _currentType == TransactionType.personal ? personalMonthlyIncome : businessMonthlyIncome;
 
   Map<String, double> get sourceWiseIncome {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1).subtract(const Duration(microseconds: 1));
     final monthEntries = entries
-        .where((e) => e.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))));
+        .where((e) => e.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && e.date.isBefore(endOfMonth));
     
     Map<String, double> summary = {};
     for (var e in monthEntries) {
